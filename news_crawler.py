@@ -11,6 +11,7 @@ import sys # stop as read last progress
 # avoid crawler error
 from time import sleep # sleep as be block for over-visiting
 import httplib2 # html exist
+import urllib2 # html exist
 
 # crawler with selenium through chrome
 from selenium import webdriver
@@ -80,7 +81,7 @@ class my_news_crawler():
 		while n > 0:
 			try:
 				url = 'https://www.chinatimes.com/politic/total?page=' + str(n) + '&chdtv'	
-				resp = httplib2.Http().request(url, 'HEAD') # check url exist
+				resp = urllib2.urlopen(url).getcode() # check url exist
 			except:
 				print("Reach the end page.")
 				break
@@ -147,7 +148,7 @@ class my_news_crawler():
 		while n > 0:
 			try:
 				url = 'https://news.ltn.com.tw/list/breakingnews/politics/'+str(n) if POLITICS else 'https://sports.ltn.com.tw/baseball/'+str(n)
-				resp = httplib2.Http().request(url, 'HEAD') # check url exist
+				resp = urllib2.urlopen(url).getcode() # check url exist
 			except:
 				print("Reach the end page.")
 				break
@@ -319,7 +320,7 @@ class my_news_crawler():
 		while n > 0:
 			try:
 				url = 'https://tw.news.appledaily.com/politics/realtime/'+str(n) if POLITICS else 'https://tw.sports.appledaily.com/realtime/'+str(n)
-				resp = httplib2.Http().request(url, 'HEAD') # check url exist
+				resp = urllib2.urlopen(url).getcode() # check url exist
 			except:
 				print("Reach the end page.")
 				break
@@ -443,7 +444,7 @@ class my_news_crawler():
 		while n > 0:
 			try:
 				url = 'https://www.ttv.com.tw/news/catlist.asp?page='+str(n)+'&Cat=A&NewsDay='
-				resp = httplib2.Http().request(url, 'HEAD') # check url exist
+				resp = urllib2.urlopen(url).getcode() # check url exist
 			except:
 				print("Reach the end page.")
 				break
@@ -504,7 +505,7 @@ class my_news_crawler():
 		while n > 0:
 			try:
 				url = 'http://new.ctv.com.tw/Category/%E6%94%BF%E6%B2%BB?PageIndex='+str(n)
-				resp = httplib2.Http().request(url, 'HEAD') # check url exist
+				resp = urllib2.urlopen(url).getcode() # check url exist
 			except:
 				print("Reach the end page.")
 				break
@@ -604,7 +605,118 @@ class my_news_crawler():
 
 
 	#########################################################################
-	################################ 公視 ################################
+	################################## 民視 ##################################
+	#########################################################################
+	def ftvnews_all_reader(self):
+		#self.ftvnews_reader('https://www.ftvnews.com.tw/news/detail/2019812N11M1')
+		
+		n = 1 # page in list
+		while n < 40:
+			try:
+				url = 'https://ftvapi.azurewebsites.net/api/FtvGetNews?Cate=POL&Page='+str(n)
+				resp = urllib2.urlopen(url).getcode() # check url exist
+			except:
+				print("Reach the end page.")
+				break
+		
+			print('================================ page: ' + str(n) + ' ================================')
+			res = requests.get(url)
+			soup = BeautifulSoup(res.text, "lxml")
+			drinks = soup.select('body')[0].text
+			news_dict_data = json.loads(drinks.replace("<p>","").replace("</p>","")) # turn dict in str to dict
+			drinks = news_dict_data["ITEM"]
+			
+			all_news = []
+			for drink in drinks: # .class # #id
+				news_url = 'https://www.ftvnews.com.tw/news/detail/'+drink["ID"]
+				print(news_url)
+				
+				if news_url == last_news_url: # reach has read news
+					self.append_2_json(all_news)
+					raise SyntaxError("Read all news news")
+				else:
+					news_dict = self.ftvnews_reader(news_url)
+					all_news.insert(0, news_dict)
+			n+=1
+			self.append_2_json(all_news) # save as json file
+			
+		
+
+
+		
+		
+		
+	def ftvnews_reader(self, url):		
+		browser.get(url)
+		text = browser.page_source
+		res = BeautifulSoup(text, features='lxml')
+		
+		title = res.find('meta', attrs={'property':'og:title'})['content'].split(u'-民視新聞')[0]
+		tag_list = [element.text for element in res.select('.tag a')]
+
+		author = ""
+		paragraph = res.article.select('p'); paragraph.reverse()
+		for p in paragraph:
+			if u'報導）' in p.text or u'報導)' in p.text: author = p.text.split(u'（')[1]; break
+		if u'／' not in author: 
+			if u'、' in author: author = author.split(u' ')[0].split(u'、') # ex. （劉忻怡、陳柏安 台北報導）
+			elif u'民視新聞' not in author: author = [author.split(u' ')[0]] # ex. （劉忻怡 台北報導）
+			else: author = [author.split(u'民視新聞')[1].split(u'）')[0]]	# ex. （民視新聞綜合報導）
+		else: 
+			author = author.split(u'／')[1]
+			if u'、' in author: author = author.split(u' ')[0].split(u'、')	# ex. （民視新聞／周寧、陳威余、李志銳 台北報導）
+			elif u' ' in author: author = [author.split(u' ')[0]]	# ex. （民視新聞／洪明生 屏東縣報導）
+			else: author = [author.split(u'）')[0]]	# ex. （民視新聞／綜合報導）
+		print(author)
+
+		# reported time: {time, time_year, time_month, time_day, time_hour_min}
+		time_str = res.select('.date')[0].text.strip('\n').strip()
+		date_obj = datetime.strptime(time_str, '%Y/%m/%d %H:%M:%S')		# ex. 2019/09/04 17:28:53
+		time = date_obj.strftime("%Y/%m/%d %H:%M")
+		time_detail = [{'time':time, 'time_year':date_obj.strftime("%Y"), 'time_month':date_obj.strftime("%m"), 'time_day':date_obj.strftime("%d"), 'time_hour_min':date_obj.strftime("%H:%M")}]
+
+		# article content
+		context = ""		
+		for p in res.select('article p')[:-1]:
+			if len(p) !=0:
+				paragraph = p.text.strip('\n').strip()
+				context += paragraph 		 
+
+		# related article: {related_title:related_url}
+		related_title = [element.text for element in res.select('.exread-list .title')]
+		related_url = [element.get('href') for element in res.select('.exread-list a')]
+		related_news = [dict([element]) for element in zip(related_title, related_url)]
+
+		# recommend article: (recommend_title:recommend_url)
+		recommend_title = [element.text for element in res.select('.col-sm-8 .col-xs-6 .title')]
+		recommend_url = ['https://www.ftvnews.com.tw'+element.get('href') for element in res.select('.col-sm-8 .col-xs-6 a')]
+		recommend_news = [dict([element]) for element in zip(recommend_title, recommend_url)]
+		
+		# video: {video_title:video_url}
+		if res.select('.news-article .fluid-width-video-wrapper') == []: video = []
+		else:
+			video_title = [element.find('iframe').get('alt') for element in res.select('.news-article .fluid-width-video-wrapper')]
+			video_url = [element.find('iframe').get('src') for element in res.select('.news-article .fluid-width-video-wrapper')]
+			video = [dict([element]) for element in zip(video_title, video_url)]	
+
+		# img: {img_title:img_url}
+		img_title = [None] # cover ing
+		img_url = [res.find('meta', attrs={'property':'og:image'})['content']]
+		if res.article.select('figure') != []: # article img
+			for element in  res.article.select('figure'):
+				img_title.extend([element.find('figcaption').text if element.find('figcaption')!=None else None])
+			img_url.extend([element.get('src') for element in  res.article.select('figure img')])
+		img = [dict([element]) for element in zip(img_title, img_url)]	
+
+		news_dict = {'title':title, 'author':author, 'context':context, 'url':url, 'tag':tag_list, 'time':time_detail, 'related_news':related_news,'recommend_news':recommend_news, 'source_video':video, 'source_img':img, 'media':'民視'}
+		print(title+' '+time)	
+		return news_dict
+	
+		
+
+
+	#########################################################################
+	################################## 公視 ##################################
 	#########################################################################
 	def pts_all_reader(self):
 		browser.get('https://news.pts.org.tw/subcategory/9') # 政經 總覽
@@ -660,7 +772,7 @@ class my_news_crawler():
 		while n < 80:
 			try:
 				url = 'https://www.setn.com/ViewAll.aspx?PageGroupID=6&p='+str(n)
-				resp = httplib2.Http().request(url, 'HEAD') # check url exist
+				resp = urllib2.urlopen(url).getcode() # check url exist
 			except:
 				print("Reach the end page.")
 				break
@@ -726,7 +838,7 @@ class my_news_crawler():
 		while n > 0:
 			try:
 				url = 'http://gotv.ctitv.com.tw/category/politics-news/page/'+str(n)
-				resp = httplib2.Http().request(url, 'HEAD') # check url exist
+				resp = urllib2.urlopen(url).getcode() # check url exist
 			except:
 				print("Reach the end page.")
 				break
@@ -805,7 +917,7 @@ class my_news_crawler():
 		while n > 0:
 			try:
 				url = 'http://eranews.eracom.com.tw/xsl/class_page.jsp?page='+str(n)
-				resp = httplib2.Http().request(url, 'HEAD') # check url exist
+				resp = urllib2.urlopen(url).getcode() # check url exist
 			except:
 				print("Reach the end page.")
 				break
@@ -877,7 +989,7 @@ class my_news_crawler():
 		while n < 7:
 			try:
 				url = 'https://www.ustv.com.tw/UstvMedia/news/107?page='+str(n)
-				resp = httplib2.Http().request(url, 'HEAD') # check url exist
+				resp = urllib2.urlopen(url).getcode() # check url exist
 			except:
 				print("Reach the end page.")
 				break
@@ -956,7 +1068,7 @@ class my_news_crawler():
 		for n in xrange(1,6): # click num of button "more"
 			try:
 				url = 'https://www.cna.com.tw/cna2018api/api/simplelist/categorycode/aipl/pageidx/'+str(n)
-				resp = httplib2.Http().request(url, 'HEAD') # check url exist
+				resp = urllib2.urlopen(url).getcode() # check url exist
 			except:
 				print("Reach the end page.")
 				break
@@ -1051,7 +1163,7 @@ class my_news_crawler():
 		while n > 0:
 			try:
 				url = 'https://www.thenewslens.com/category/politics?page='+str(n)
-				resp = httplib2.Http().request(url, 'HEAD') # check url exist
+				resp = urllib2.urlopen(url).getcode() # check url exist
 			except:
 				print("Reach the end page.")
 				break
@@ -1150,7 +1262,7 @@ class my_news_crawler():
 		while n < 19:
 			try:
 				url = 'https://www.peoplenews.tw/list/%E6%94%BF%E6%B2%BB#page-'+str(n)
-				resp = httplib2.Http().request(url, 'HEAD') # check url exist
+				resp = urllib2.urlopen(url).getcode() # check url exist
 			except:
 				print("Reach the end page.")
 				break
@@ -1242,7 +1354,7 @@ class my_news_crawler():
 		while n < 14 :
 			try:
 				url = 'https://www.upmedia.mg/news_list.php?currentPage='+str(n)+'&Type='+str(col_type)
-				resp = httplib2.Http().request(url, 'HEAD') # check url exist
+				resp = urllib2.urlopen(url).getcode() # check url exist
 			except:
 				print("Reach the end page.")
 				break
@@ -1335,7 +1447,7 @@ class my_news_crawler():
 		while n < 26:
 			try:
 				url = 'https://www.cmmedia.com.tw/api/articles?num=12&page='+str(n)+'&category=politics'
-				resp = httplib2.Http().request(url, 'HEAD') # check url exist
+				resp = urllib2.urlopen(url).getcode() # check url exist
 			except:
 				print("Reach the end page.")
 				break
@@ -1426,7 +1538,7 @@ class my_news_crawler():
 		while n < 10:
 			try:
 				url = 'https://www.epochtimes.com/b5/ncid1077884_'+str(n)+'.htm'
-				resp = httplib2.Http().request(url, 'HEAD') # check url exist
+				resp = urllib2.urlopen(url).getcode() # check url exist
 			except:
 				print("Reach the end page.")
 				break
@@ -1517,7 +1629,7 @@ class my_news_crawler():
 		while n < 8:
 			try:
 				url = 'https://cnews.com.tw/category/%E6%94%BF%E6%B2%BB%E5%8C%AF%E6%B5%81/page/'+str(n)+'/'
-				resp = httplib2.Http().request(url, 'HEAD') # check url exist
+				resp = urllib2.urlopen(url).getcode() # check url exist
 			except:
 				print("Reach the end page.")
 				break
@@ -1561,7 +1673,7 @@ class my_news_crawler():
 		time_str = res.select('#articleTitle .date span')[1].text
 		date_obj = datetime.strptime(time_str, '%Y-%m-%d') # ex. 2019-08-13
 		time = date_obj.strftime("%Y/%m/%d")
-		time_detail = [{'time':time, 'time_year':date_obj.strftime("%Y"), 'time_month':date_obj.strftime("%m"), 'time_day':None, 'time_hour_min':None}]		
+		time_detail = [{'time':time, 'time_year':date_obj.strftime("%Y"), 'time_month':date_obj.strftime("%m"), 'time_day':date_obj.strftime("%d"), 'time_hour_min':None}]	
 
 		# article content
 		context = ""		
@@ -1610,7 +1722,7 @@ class my_news_crawler():
 		while n < 26:
 			try:
 				url = 'https://newtalk.tw/news/subcategory/2/%E6%94%BF%E6%B2%BB/'+str(n)
-				resp = httplib2.Http().request(url, 'HEAD') # check url exist
+				resp = urllib2.urlopen(url).getcode() # check url exist
 			except:
 				print("Reach the end page.")
 				break
@@ -1653,7 +1765,7 @@ class my_news_crawler():
 		time_str = res.find('meta', attrs={'property':'article:published_time'})['content']
 		date_obj = datetime.strptime(time_str, '%Y-%m-%dT%H:%M:%S+08:00') # ex. 2019-08-13
 		time = date_obj.strftime("%Y/%m/%d %H:%M")
-		time_detail = [{'time':time, 'time_year':date_obj.strftime("%Y"), 'time_month':date_obj.strftime("%m"), 'time_day':None, 'time_hour_min':None}]		
+		time_detail = [{'time':time, 'time_year':date_obj.strftime("%Y"), 'time_month':date_obj.strftime("%m"), 'time_day':date_obj.strftime("%d"), 'time_hour_min':date_obj.strftime("%H:%M")}]	
 
 		# article content
 		context = ""		
@@ -1691,9 +1803,1121 @@ class my_news_crawler():
 		print(title+' '+time)		
 		return news_dict
 		
+
+		
+
+
+	#########################################################################
+	################################# 風傳媒 #################################
+	#########################################################################
+	def stormmedia_all_reader(self):
+		n = 1
+		while n < 55:
+			try:
+				url = 'https://www.storm.mg/category/118/'+str(n) if POLITICS else 'https://www.storm.mg/category/118606'+str(n)
+				resp = urllib2.urlopen(url).getcode() # check url exist
+			except:
+				print("Reach the end page.")
+				break
+		
+			print('================================ page: ' + str(n) + ' ================================')
+			
+			res = requests.get(url)
+			soup = BeautifulSoup(res.text, "lxml")
+			drinks = soup.select('.carousel-inner .carousel-caption') # left top rolling article
+			drinks.extend(soup.select('#category_content .col-xs-12')) # left middle articles
+			drinks.extend(soup.select('.card_thumbs_left .card_img_wrapper')) # left bottom articles
+
+			all_news = []
+			for drink in drinks: # .class # #id
+				news_url = drink.find('a').get('href')
+				
+				if news_url == last_news_url: # reach has read news
+					self.append_2_json(all_news)
+					raise SyntaxError("Read all news news")
+				else:
+					news_dict = self.stormmedia_reader(news_url)
+					all_news.insert(0, news_dict)
+			n+=1
+			self.append_2_json(all_news) # save as json file
+			
+
+		
+			
+		
+
+
+	def stormmedia_reader(self, url):
+		text = self.get_url_text(url)
+		res = BeautifulSoup(text, features='lxml')			
+		
+		title = res.select('#article_title')[0].text
+		tag_list = res.find('meta', attrs={'name':'news_keywords'})['content'].split(u', ')
+		author = [element.text for element in res.select('#author_block .info_author')]
+
+		# reported time: {time, time_year, time_month, time_day, time_hour_min}
+		time_str = res.find('meta', attrs={'itemprop':'datePublished'})['content']
+		date_obj = datetime.strptime(time_str, '%Y-%m-%dT%H:%M:%S') # ex. 2019-08-22T11:50:01
+		time = date_obj.strftime("%Y/%m/%d %H:%M")
+		time_detail = [{'time':time, 'time_year':date_obj.strftime("%Y"), 'time_month':date_obj.strftime("%m"), 'time_day':date_obj.strftime("%d"), 'time_hour_min':date_obj.strftime("%H:%M")}]	
+		
+		# article content
+		context = ""		
+		for p in res.select('#CMS_wrapper p'):
+			if len(p) !=0:
+				paragraph = p.text.strip('\n').strip()
+				context += paragraph 
+		if u'➤更多內容' in context: context = context.split(u'➤更多內容')[0]
+		
+		
+		# video: {video_title:video_url}
+		if res.select('#CMS_wrapper iframe') == []: video = []
+		else:
+			video_title = [element.get('alt') for element in res.select('#CMS_wrapper iframe')]
+			video_url = [element.get('src') for element in res.select('#CMS_wrapper iframe')]			
+			video = [dict([element]) for element in zip(video_title, video_url)]	
+
+		# img: {img_title:img_url}	
+		img_title = [res.find('meta', attrs={'name':'twitter:image:alt'})['content']]	#main img
+		img_url = [res.find('meta', attrs={'name':'twitter:image'})['content']] # main img
+		if res.select('.dnd-drop-wrapper img') != []:	# img in article
+			img_title.extend([element.get('alt') for element in res.select('.dnd-drop-wrapper img')])
+			img_url.extend([element.get('src') for element in res.select('.dnd-drop-wrapper img')])	
+		img = [dict([element]) for element in zip(img_title, img_url)]
+		
+		# related article: {related_title:related_url}
+		related_title = [element.text for element in res.select('.related_link')] # 相關報導 標題
+		related_url = ['https://www.storm.mg'+element.get('href') for element in res.select('.related_link')] # 相關報導 url
+		related_news = [dict([element]) for element in zip(related_title, related_url)]
+
+		# recommend article: (recommend_title:recommend_url)
+		recommend_news = []
+		
+		news_dict = {'title':title, 'author':author, 'context':context, 'url':url, 'tag':tag_list, 'time':time_detail, 'related_news':related_news,'recommend_news':recommend_news, 'source_video':video, 'source_img':img, 'media':'風傳媒'}
+		print(title+' '+time)		
+		return news_dict
+		
+
+		
+
+
+	#########################################################################
+	################################# 今日新聞 #################################
+	#########################################################################
+	def nownews_all_reader(self):		
+		n = 1
+		while n < 87:
+			try:
+				url = 'https://www.nownews.com/cat/politics/page/'+str(n) if POLITICS else 'https://www.nownews.com/cat/sport/'+str(n)
+				resp = urllib2.urlopen(url).getcode() # check url exist
+			except:
+				print("Reach the end page.")
+				break
+		
+			print('================================ page: ' + str(n) + ' ================================')
+			
+			res = requests.get(url)
+			soup = BeautifulSoup(res.text, "lxml")
+			if n==1: drinks = soup.select('.td-meta-info-container h3, .td_block_padding h3, .td-fix-index h3')
+			else: drinks = soup.select('.td-fix-index h3') # except articles on top and middle space (熱門新聞)	
+
+			all_news = []
+			for drink in drinks: # .class # #id
+				news_url = drink.find('a').get('href')
+				
+				if news_url == last_news_url: # reach has read news
+					self.append_2_json(all_news)
+					raise SyntaxError("Read all news news")
+				else:
+					news_dict = self.nownews_reader(news_url)
+					all_news.insert(0, news_dict)
+			n+=1
+			self.append_2_json(all_news) # save as json file
+		
+			
+			
+
+		
+			
+		
+
+
+	def nownews_reader(self, url):
+		text = self.get_url_text(url)
+		res = BeautifulSoup(text, features='lxml')	
+
+		title = res.find('h1', attrs={'class':'entry-title'}).text
+		tag_list = [element.text for element in res.select('.td-tags a')]
+		author = res.find('div', attrs={'class':'td-post-author-name'}).text.strip('\n').strip()
+
+		# reported time: {time, time_year, time_month, time_day, time_hour_min}
+		time_str = res.find('meta', attrs={'itemprop':'datePublished'})['content']
+		date_obj = datetime.strptime(time_str, '%Y-%m-%dT%H:%M:%S+00:00') # ex. 2019-08-22 11:50:01
+		time = date_obj.strftime("%Y/%m/%d %H:%M")
+		time_detail = [{'time':time, 'time_year':date_obj.strftime("%Y"), 'time_month':date_obj.strftime("%m"), 'time_day':date_obj.strftime("%d"), 'time_hour_min':date_obj.strftime("%H:%M")}]
+
+		# article content
+		context = ""		
+		for p in res.select('span p'):
+			if len(p) !=0:
+				paragraph = p.text.strip('\n').strip()
+				context += paragraph 
+
+		# related article: {related_title:related_url}
+		related_title = [element.text for element in res.select('.relativeArticle_Reynold a')] # 相關報導 標題
+		related_url = [element.get('href') for element in res.select('.relativeArticle_Reynold a')] # 相關報導 url
+		related_news = [dict([element]) for element in zip(related_title, related_url)]
+
+		# recommend article: (recommend_title:recommend_url)
+		if res.select('.td-content-more-articles-box') == []: recommend_news = []
+		else:
+			recommend_title = [element.text for element in res.select('.td-content-more-articles-box h3')]
+			recommend_url = [element.find('a').get('href') for element in res.select('.td-content-more-articles-box h3')]
+			recommend_news = [dict([element]) for element in zip(recommend_title, recommend_url)]
+
+		# video: {video_title:video_url}
+		if res.select('iframe') == []: video = []
+		else:
+			video_title = [res.select('iframe')[0].get('alt')]
+			video_url = [res.select('iframe')[0].get('data-src')]			
+			video = [dict([element]) for element in zip(video_title, video_url)]	
+
+		# img: {img_title:img_url}
+		if res.select('figcaption')==[]: img = [] # no img
+		else:
+			img_title = [element.text for element in res.select('figcaption')]
+			img_url = [element.get('data-src') for element in res.select('figure')]
+			img = [dict([element]) for element in zip(img_title, img_url)]			
+
+		news_dict = {'title':title, 'author':author, 'context':context, 'url':url, 'tag':tag_list, 'time':time_detail, 'related_news':related_news,'recommend_news':recommend_news, 'source_video':video, 'source_img':img, 'media':'今日新聞'}
+		print(title+' '+time)		
+		return news_dict
+		
+
+		
+
+
+	#########################################################################
+	################################# 鏡週刊 #################################
+	#########################################################################
+	def mirrormedia_all_reader(self):		
+		browser.get('https://www.mirrormedia.mg/category/political')
+		jsCode = "var q=document.documentElement.scrollTop=100000" # control distance of scroller on the right
+		for x in range(0,20): 
+			browser.execute_script(jsCode) # keep scrolling to the bottom
+			sleep(1)
+		text = browser.page_source	
+
+		all_news = []
+		res = BeautifulSoup(text, features='lxml')
+		drinks = res.select('.listArticleBlock__figure')
+		
+		for drink in drinks: # .class # #id
+			news_url = 'https://www.mirrormedia.mg' + drink.find('a').get('href')			
+			if len(news_url.split('https://www.mirrormedia.mg/story/'))==1: continue # skip ad url
+			
+			if news_url == last_news_url: # reach has read news
+				self.append_2_json(all_news)
+				raise SyntaxError("Read all news news")
+			else:
+				news_dict = self.mirrormedia_reader(news_url)
+				all_news.insert(0, news_dict)
+		self.append_2_json(all_news) # save as json file
+		
+
+		
+			
+		
+
+
+	def mirrormedia_reader(self, url):
+		text = self.get_url_text(url)
+		res = BeautifulSoup(text, features='lxml')	
+
+		title = res.title.text
+		tag_list = [element.text for element in res.select('.tags a')]
+		author = res.find('meta', attrs={'property':'dable:author'})['content']
+
+		# reported time: {time, time_year, time_month, time_day, time_hour_min}
+		time_str = res.find('meta', attrs={'property':'article:published_time'})['content']
+		date_obj = datetime.strptime(time_str, '%Y-%m-%dT%H:%M:%S.000Z') # ex. 2019-08-19T09:05:25.000Z
+		time = date_obj.strftime("%Y/%m/%d %H:%M")
+		time_detail = [{'time':time, 'time_year':date_obj.strftime("%Y"), 'time_month':date_obj.strftime("%m"), 'time_day':date_obj.strftime("%d"), 'time_hour_min':date_obj.strftime("%H:%M")}]
+		
+		# article content
+		context = ""		
+		for p in res.select('#article-body-content p'):
+			if len(p) !=0:
+				paragraph = p.text.strip('\n').strip()
+				context += paragraph 
+		context = context.split(u'更新時間')[0]
+
+		# related article: {related_title:related_url}
+		related_title = [element.text for element in res.select('.related__title')] # 相關報導 標題
+		related_url = ['https://www.mirrormedia.mg'+element.find('a').get('href') for element in res.select('.related__title')] # 相關報導 url
+		related_news = [dict([element]) for element in zip(related_title, related_url)]
+
+		# recommend article: (recommend_title:recommend_url)
+		recommend_news = []
+		
+		# video: {video_title:video_url}
+		if res.select('article iframe') == []: video = []
+		else:
+			video_title = [res.select('article iframe')[0].get('alt')]
+			video_url = [res.select('article iframe')[0].get('src')]			
+			video = [dict([element]) for element in zip(video_title, video_url)]	
+
+		# img: {img_title:img_url}
+		img_title = [res.select('#hero-image')[0].get('alt')] # cover img
+		img_url = [res.select('#hero-image')[0].get('src')]
+		if res.select('.thumbnail img')!=[]: # context img
+			img_title.extend([element.get('alt') for element in res.select('.thumbnail img')])
+			img_url.extend([element.get('src') for element in res.select('.thumbnail img')])
+		img = [dict([element]) for element in zip(img_title, img_url)]
+		
+		news_dict = {'title':title, 'author':author, 'context':context, 'url':url, 'tag':tag_list, 'time':time_detail, 'related_news':related_news,'recommend_news':recommend_news, 'source_video':video, 'source_img':img, 'media':'鏡週刊'}
+		print(title+' '+time)		
+		return news_dict		
+		
+
+		
+
+
+	#########################################################################
+	################################# 新新聞 #################################
+	#########################################################################
+	def new7_all_reader(self):		
+		n = 1
+		while n < 4:
+			try:
+				url = 'https://www.new7.com.tw/NewsList.aspx?t=03&p='+str(n)
+				resp = urllib2.urlopen(url).getcode() # check url exist
+			except:
+				print("Reach the end page.")
+				break
+		
+			print('================================ page: ' + str(n) + ' ================================')
+			
+			browser.get(url)
+			text = browser.page_source	
+			soup = BeautifulSoup(text, features='lxml')
+			drinks = soup.select('#ContentPlaceHolder1_DataList1 li')
+			
+			all_news = []
+			for drink in drinks: # .class # #id
+				news_url = 'https://www.new7.com.tw'+drink.find('a').get('href')
+				
+				if news_url == last_news_url: # reach has read news
+					self.append_2_json(all_news)
+					raise SyntaxError("Read all news news")
+				else:
+					news_dict = self.new7_reader(news_url)
+					all_news.insert(0, news_dict)
+			n+=1
+			self.append_2_json(all_news) # save as json file
+			
+	
+
+		
+
+		
+	def new7_reader(self, url):
+		browser.get(url)
+		res = BeautifulSoup(browser.page_source, features='lxml')
+
+		title = res.find('meta', attrs={'property':'og:title'})['content'].split(u'新新聞-')[1]
+		tag_list = []
+		author = res.select('.NewsPageEditer')[0].text.strip('\n').strip()
+
+		# reported time: {time, time_year, time_month, time_day, time_hour_min}
+		time_str = res.select('.NewsPageTitle span')[0].text
+		date_obj = datetime.strptime(time_str, '%Y-%m-%d %H:%M')
+		time = date_obj.strftime("%Y/%m/%d %H:%M")
+		time_detail = [{'time':time, 'time_year':date_obj.strftime("%Y"), 'time_month':date_obj.strftime("%m"), 'time_day':date_obj.strftime("%d"), 'time_hour_min':date_obj.strftime("%H:%M")}]		
+
+		# article content
+		context = ""		
+		for p in res.select('p'):
+			if len(p) !=0:
+				paragraph = p.text.strip('\n').strip()
+				context += paragraph
+
+		
+		# related article: {related_title:related_url}
+		related_news = []
+
+		# recommend article: (recommend_title:recommend_url)
+		recommend_news = []
+		
+		# video: {video_title:video_url}
+		video = []
+
+		# img: {img_title:img_url}
+		if res.select('#ContentPlaceHolder1_NewsView_imgpic') == []: img = []
+		else:
+			img_title = [res.select('#ContentPlaceHolder1_NewsView_imgpic')[0].get('alt')] # cover img
+			img_url = [res.select('#ContentPlaceHolder1_NewsView_imgpic')[0].get('src')]
+			img = [dict([element]) for element in zip(img_title, img_url)]
+
+		news_dict = {'title':title, 'author':author, 'context':context, 'url':url, 'tag':tag_list, 'time':time_detail, 'related_news':related_news,'recommend_news':recommend_news, 'source_video':video, 'source_img':img, 'media':'新新聞'}
+		print(title+' '+time)		
+		return news_dict
+		
+
+		
+
+
+	#########################################################################
+	############################### 台灣好新聞 ################################
+	#########################################################################
+	def taiwanhot_all_reader(self):			
+		n = 1
+		while n < 7:
+			try:
+				url = 'https://www.taiwanhot.net/?cat=25&page='+str(n)
+				resp = urllib2.urlopen(url).getcode() # check url exist
+			except:
+				print("Reach the end page.")
+				break
+		
+			print('================================ page: ' + str(n) + ' ================================')
+			
+			res = requests.get(url)
+			soup = BeautifulSoup(res.text, "lxml")
+			if n==1: drinks = soup.select('.col-md-12 a, .news-title a')
+			else: drinks = soup.select('.news-title a') # except articles on top and middle space (熱門新聞)	
+
+			all_news = []
+			for drink in drinks: # .class # #id
+				news_url = drink.get('href')
+				
+				if news_url == last_news_url: # reach has read news
+					self.append_2_json(all_news)
+					raise SyntaxError("Read all news news")
+				else:
+					news_dict = self.taiwanhot_reader(news_url)
+					all_news.insert(0, news_dict)
+			n+=1
+			self.append_2_json(all_news) # save as json file
+			
+			
+			
+
+		
+			
+		
+
+
+	def taiwanhot_reader(self, url):
+		text = self.get_url_text(url)
+		res = BeautifulSoup(text, features='lxml')	
+
+		title = res.find('meta', attrs={'property':'og:title'})['content'].split(u' | 台灣好新聞')[0]
+		tag_list = [element.text for element in res.select('.td-tags a')]
+		author = res.select('.reporter_name')[0].text
+
+		# reported time: {time, time_year, time_month, time_day, time_hour_min}
+		time_str = res.select('.txt_gray2 .post_time')[0].text
+		date_obj = datetime.strptime(time_str, ' %Y-%m-%d %H:%M')		
+		time = date_obj.strftime("%Y/%m/%d %H:%M")
+		time_detail = [{'time':time, 'time_year':date_obj.strftime("%Y"), 'time_month':date_obj.strftime("%m"), 'time_day':date_obj.strftime("%d"), 'time_hour_min':date_obj.strftime("%H:%M")}]
+
+		# article content
+		context = ""		
+		for p in res.select('.news_content p'):
+			if len(p) !=0:
+				paragraph = p.text.strip('\n').strip()
+				context += paragraph 
+		
+		# related article: {related_title:related_url}
+		related_title = [element.text.strip('\t').strip() for element in res.select('.col-xs-12 .news_title')] # 相關報導 標題
+		related_url = [element.get('href') for element in res.select('.relative_wrapper a')] # 相關報導 url
+		related_news = [dict([element]) for element in zip(related_title, related_url)]
+
+		# recommend article: (recommend_title:recommend_url)
+		recommend_news = []
+
+		# video: {video_title:video_url}
+		if res.select('iframe') == []: video = []
+		else:
+			video_title = [res.select('iframe')[0].get('alt')]
+			video_url = [res.select('iframe')[0].get('src')]			
+			video = [dict([element]) for element in zip(video_title, video_url)]	
+
+		# img: {img_title:img_url}
+		if res.select('.photo_wrap')==[]: img = [] # no img
+		else:
+			img_title = [element.text.strip('\n').strip() for element in res.select('.photo_wrap')]
+			img_url = [element.find('img').get('src') for element in res.select('.photo_wrap')]
+			img = [dict([element]) for element in zip(img_title, img_url)]			
+
+		news_dict = {'title':title, 'author':author, 'context':context, 'url':url, 'tag':tag_list, 'time':time_detail, 'related_news':related_news,'recommend_news':recommend_news, 'source_video':video, 'source_img':img, 'media':'台灣好新聞'}
+		print(title+' '+time)		
+		return news_dict
+		
+
+		
+
+
+	#########################################################################
+	############################### 中央廣播電台 ################################
+	#########################################################################
+	def RTInews_all_reader(self):
+		n = 1
+		while n < 55:
+			try:
+				url = 'https://www.rti.org.tw/news/list/categoryId/5/page/'+str(n)
+				resp = urllib2.urlopen(url).getcode() # check url exist
+			except:
+				print("Reach the end page.")
+				break
+		
+			print('================================ page: ' + str(n) + ' ================================')
+			
+			res = requests.get(url)
+			soup = BeautifulSoup(res.text, "lxml")
+			drinks = soup.select('.newslist-box li')
+
+			all_news = []
+			for drink in drinks: # .class # #id
+				news_url ='https://www.rti.org.tw' +drink.find('a').get('href')
+				
+				if news_url == last_news_url: # reach has read news
+					self.append_2_json(all_news)
+					raise SyntaxError("Read all news news")
+				else:
+					news_dict = self.RTInews_reader(news_url)
+					all_news.insert(0, news_dict)
+			n+=1
+			self.append_2_json(all_news) # save as json file
+			
+			
+			
+
+		
+			
+		
+
+
+	def RTInews_reader(self, url):
+		text = self.get_url_text(url)
+		res = BeautifulSoup(text, features='lxml')	
+
+		title = res.find('meta', attrs={'property':'og:title'})['content']
+		tag_list = [element.text for element in res.select('.keyword-box a')]
+		author = res.select('.source')[1].text.split(u'：')[1]
+
+		# reported time: {time, time_year, time_month, time_day, time_hour_min}
+		time_str = res.select('.date')[0].text.split(u'時間：')[1]
+		date_obj = datetime.strptime(time_str, '%Y-%m-%d %H:%M')		
+		time = date_obj.strftime("%Y/%m/%d %H:%M")
+		time_detail = [{'time':time, 'time_year':date_obj.strftime("%Y"), 'time_month':date_obj.strftime("%m"), 'time_day':date_obj.strftime("%d"), 'time_hour_min':date_obj.strftime("%H:%M")}]
+
+		# article content
+		context = ""		
+		for p in res.select('p'):
+			if len(p) !=0:
+				paragraph = p.text.strip('\n').strip()
+				context += paragraph 
+		
+		# related article: {related_title:related_url}
+		related_title = [element.text for element in res.select('.popnews-box:nth-child(1) li')] # 相關報導 標題
+		related_url = ['https://www.rti.org.tw'+element.get('href') for element in res.select('.popnews-box:nth-child(1) a')] # 相關報導 url
+		related_news = [dict([element]) for element in zip(related_title, related_url)]
+
+		# recommend article: (recommend_title:recommend_url)
+		recommend_news = []
+		
+		# video: {video_title:video_url}
+		if res.select('iframe') == []: video = []
+		else:
+			video_title = [res.select('iframe')[0].get('alt')]
+			video_url = [res.select('iframe')[0].get('src')]			
+			video = [dict([element]) for element in zip(video_title, video_url)]	
+
+		# img: {img_title:img_url}
+		img_title = [element.text for element in res.select('figure')] # cover in=mg
+		img_url = [element.find('img').get('src') for element in res.select('figure')] # cover in=mg
+		if res.select('p img')!=[]: 
+			img_title.extend([element.text for element in res.select('.news-detail-box span span')])
+			img_url.extend([element.get('src') for element in res.select('p img')])
+		img = [dict([element]) for element in zip(img_title, img_url)]
+
+		news_dict = {'title':title, 'author':author, 'context':context, 'url':url, 'tag':tag_list, 'time':time_detail, 'related_news':related_news,'recommend_news':recommend_news, 'source_video':video, 'source_img':img, 'media':'中央廣播電台'}
+		print(title+' '+time)		
+		return news_dict
+		
+
+		
+
+
+	#########################################################################
+	################################ 世界日報 #################################
+	#########################################################################
+	def worldjournal_all_reader(self):
+		n = 1
+		while n < 16:
+			try:
+				url = 'https://www.worldjournal.com/topic/%e5%8f%b0%e7%81%a3%e6%96%b0%e8%81%9e%e7%b8%bd%e8%a6%bd/?pno='+str(n)
+				resp = urllib2.urlopen(url).getcode() # check url exist
+			except:
+				print("Reach the end page.")
+				break
+		
+			print('================================ page: ' + str(n) + ' ================================')
+			
+			res = requests.get(url)
+			soup = BeautifulSoup(res.text, "lxml")
+			drinks = soup.select('h2')
+
+			all_news = []
+			for drink in drinks: # .class # #id
+				news_url = drink.find('a').get('href')
+				
+				if news_url == last_news_url: # reach has read news
+					self.append_2_json(all_news)
+					raise SyntaxError("Read all news news")
+				else:
+					news_dict = self.worldjournal_reader(news_url)
+					all_news.insert(0, news_dict)
+			n+=1
+			self.append_2_json(all_news) # save as json file
+			
+	
+			
+			
+
+		
+			
+		
+
+
+	def worldjournal_reader(self, url):
+		text = self.get_url_text(url)
+		res = BeautifulSoup(text, features='lxml')	
+
+		title = res.find('meta', attrs={'property':'og:title'})['content'].split(u' - 世界新聞網')[0]
+		author = res.select('.date span')[0].text.split(u'／')[0]
+		
+		tag_list = [element.text for element in res.select('.post-title span')] # tag on web
+		if res.find('meta', attrs={'name':'keywords'})!=None: 
+			tag_list.extend(res.find('meta', attrs={'name':'keywords'})['content'].split(u',')) # tag behind web
+			tag_list = list(set(tag_list)) # unique tag list
+
+		# reported time: {time, time_year, time_month, time_day, time_hour_min}
+		time_str = res.find('meta', attrs={'property':'article:published_time'})['content']
+		date_obj = datetime.strptime(time_str, '%Y-%m-%dT%H:%M:%S-04:00')		# ex. 2019-09-01T06:10:00-04:00
+		time = date_obj.strftime("%Y/%m/%d %H:%M")
+		time_detail = [{'time':time, 'time_year':date_obj.strftime("%Y"), 'time_month':date_obj.strftime("%m"), 'time_day':date_obj.strftime("%d"), 'time_hour_min':date_obj.strftime("%H:%M")}]
+
+		# article content
+		context = ""		
+		for p in res.select('.post-content p')[:-1]:
+			if len(p) !=0 and u'➤➤➤' not in p.text:
+				paragraph = p.text.strip('\n').strip()
+				context += paragraph 
+ 
+		# related article: {related_title:related_url}
+		related_title = [element.text for element in res.select('.pagination a')] # 相關報導 標題
+		related_url = [element.get('href') for element in res.select('.pagination a')] # 相關報導 url
+		related_news = [dict([element]) for element in zip(related_title, related_url)]
+
+		# recommend article: (recommend_title:recommend_url)
+		if res.select('.post-content p a') == []: recommend_news = [] # no link in article
+		else:
+			recommend_title = [element.text for element in res.select('.post-content p a')]
+			recommend_url = [element.get('href') for element in res.select('.post-content p a')]
+			recommend_news = [dict([element]) for element in zip(recommend_title, recommend_url)]
+
+		# video: {video_title:video_url}
+		if res.select('p iframe') == []: video = []
+		else:
+			video_title = [element.get('alt') for element in res.select('p iframe')]
+			video_url = [element.get('src') for element in res.select('p iframe')]
+			video = [dict([element]) for element in zip(video_title, video_url)]	
+
+		# img: {img_title:img_url}
+		if res.select('.img-holder')==[]: img = [] # no img
+		else:
+			img_title = [element.find('img').get('alt') for element in res.select('.img-holder')]
+			img_url = [element.find('img').get('src') for element in res.select('.img-holder')]
+			img = [dict([element]) for element in zip(img_title, img_url)]			
+
+		news_dict = {'title':title, 'author':author, 'context':context, 'url':url, 'tag':tag_list, 'time':time_detail, 'related_news':related_news,'recommend_news':recommend_news, 'source_video':video, 'source_img':img, 'media':'世界日報'}
+		print(title+' '+time)		
+		return news_dict
+		
+
+		
+
+
+	#########################################################################
+	################################ 風向新聞 #################################
+	#########################################################################
+	def kairosNews_all_reader(self):		
+		n = 1
+		while n < 15:
+			try:
+				url = 'https://kairos.news/headlines/politics/page/'+str(n)
+				resp = urllib2.urlopen(url).getcode() # check url exist
+			except:
+				print("Reach the end page.")
+				break
+		
+			print('================================ page: ' + str(n) + ' ================================')
+			
+			res = requests.get(url)
+			soup = BeautifulSoup(res.text, "lxml")
+			drinks = soup.select('.post-title')
+
+			all_news = []
+			for drink in drinks: # .class # #id
+				news_url = drink.find('a').get('href')
+				
+				if news_url == last_news_url: # reach has read news
+					self.append_2_json(all_news)
+					raise SyntaxError("Read all news news")
+				else:
+					news_dict = self.kairosNews_reader(news_url)
+					all_news.insert(0, news_dict)
+			n+=1
+			self.append_2_json(all_news) # save as json file
+			
+
+	
+			
+			
+
+		
+			
+		
+
+
+	def kairosNews_reader(self, url):
+		text = self.get_url_text(url)
+		res = BeautifulSoup(text, features='lxml')	
+
+		title = res.title.text
+		tag_list = [element.text for element in res.select('.tagcloud a')]
+		author = res.select('.author-name')[0].text
+
+		# reported time: {time, time_year, time_month, time_day, time_hour_min}
+		time_str = res.find('meta', attrs={'property':'article:published_time'})['content']
+		date_obj = datetime.strptime(time_str, '%Y-%m-%dT%H:%M:%S+00:00')		# ex. 2019-09-02T09:47:06+00:00
+		time = date_obj.strftime("%Y/%m/%d %H:%M")
+		time_detail = [{'time':time, 'time_year':date_obj.strftime("%Y"), 'time_month':date_obj.strftime("%m"), 'time_day':date_obj.strftime("%d"), 'time_hour_min':date_obj.strftime("%H:%M")}]
+
+		# article content
+		context = ""		
+		for p in res.select('p'):
+			if len(p) !=0:
+				paragraph = p.text.strip('\n').strip()
+				context += paragraph 
+ 		context = context.split(u'喜歡這篇新聞嗎')[0]
+ 		 		
+		# related article: {related_title:related_url}
+		related_title = [element.find('a').get('title') for element in res.select('.related-item')]
+		related_url = [element.find('a').get('href') for element in res.select('.related-item')]
+		related_news = [dict([element]) for element in zip(related_title, related_url)]
+
+		# recommend article: (recommend_title:recommend_url)
+		recommend_news = []
+
+		# video: {video_title:video_url}
+		if res.select('.fb-video') == []: video = []
+		else:
+			video_title = [element.get('alt') for element in res.select('.fb-video')]
+			video_url = [element.get('data-href') for element in res.select('.fb-video')]
+			video = [dict([element]) for element in zip(video_title, video_url)]	
+		
+		# img: {img_title:img_url}
+		img_title = [res.select('.single-featured-image img')[0].get('alt')] # cover ing
+		img_url = [res.select('.single-featured-image img')[0].get('src')] # cover img
+		if res.select('.wp-caption') != []:  # img in article
+			img_title.extend([element.text for element in res.select('.wp-caption-text')])
+			img_url.extend([element.find('img').get('src') for element in res.select('.wp-caption')])
+		if res.select('.fb-post') != []:  # cite fb posts img
+			img_title.extend([element.get('alt') for element in res.select('.fb-post')])
+			img_url.extend([element.get('data-href') for element in res.select('.fb-post')])
+		img = [dict([element]) for element in zip(img_title, img_url)]	
+		
+		news_dict = {'title':title, 'author':author, 'context':context, 'url':url, 'tag':tag_list, 'time':time_detail, 'related_news':related_news,'recommend_news':recommend_news, 'source_video':video, 'source_img':img, 'media':'風向新聞'}
+		print(title+' '+time)		
+		return news_dict
+		
+
+		
+
+
+	#########################################################################
+	################################# 民眾日報 #################################
+	#########################################################################
+	def mypeople_all_reader(self):
+		browser.get('http://www.mypeople.tw/index.php?r=site/index&id=22848&channel=1')
+		jsCode = "var q=document.documentElement.scrollTop=100000" # control distance of scroller on the right
+		for x in range(0,15): 
+			browser.execute_script(jsCode) # keep scrolling to the bottom
+			sleep(20)
+		text = browser.page_source	
+
+		all_news = []
+		res = BeautifulSoup(text, features='lxml')
+		drinks = res.select('#newslist li')
+		
+		for drink in drinks: # .class # #id
+			news_url = drink.find('a').get('href')		
+			print(news_url)
+			
+			if news_url == last_news_url: # reach has read news
+				self.append_2_json(all_news)
+				raise SyntaxError("Read all news news")
+			else:
+				news_dict = self.mypeople_reader(news_url)
+				all_news.insert(0, news_dict)
+		self.append_2_json(all_news) # save as json file
+		
+
+		
+			
+		
+
+
+	def mypeople_reader(self, url):
+		text = self.get_url_text(url)
+		res = BeautifulSoup(text, features='lxml')	
+
+		title = res.find('meta', attrs={'property':'og:title'})['content']
+		tag_list = []
+
+		# reported time: {time, time_year, time_month, time_day, time_hour_min}
+		time_str = res.select('.news_source_date')[0].text
+		date_obj = datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S') # ex. 2019-09-04 16:34:13
+		time = date_obj.strftime("%Y/%m/%d %H:%M")
+		time_detail = [{'time':time, 'time_year':date_obj.strftime("%Y"), 'time_month':date_obj.strftime("%m"), 'time_day':date_obj.strftime("%d"), 'time_hour_min':date_obj.strftime("%H:%M")}]
+
+		# article content
+		context = ""		
+		for p in res.select('.news_content p'):
+			if len(p) !=0:
+				paragraph = p.text.strip('\n').strip()
+				context += paragraph 
+		if u'】' in context: author = context.split(u'】')[0].split(u'【')[1]
+		elif u'〕' in context: author = context.split(u'〕')[0].split(u'〔')[1]
+		else: author = None; print('!!!! NO AUTHOR !!!')
+
+		# related article: {related_title:related_url}
+		related_news = []
+
+		# recommend article: (recommend_title:recommend_url)
+		recommend_news = []
+		
+		# video: {video_title:video_url}
+		video = []
+
+		# img: {img_title:img_url}
+		if res.select('p img')==[]: img = [] # no context img
+		else:	
+			img_title = [element.get('alt') for element in res.select('p img')]
+			img_url = [element.get('src') for element in res.select('p img')]
+			img = [dict([element]) for element in zip(img_title, img_url)]
+		
+		news_dict = {'title':title, 'author':author, 'context':context, 'url':url, 'tag':tag_list, 'time':time_detail, 'related_news':related_news,'recommend_news':recommend_news, 'source_video':video, 'source_img':img, 'media':'民眾日報'}
+		print(title+' '+time)		
+		return news_dict
+		
+
+		
+
+
+	#########################################################################
+	################################ 芋傳媒 #################################
+	#########################################################################
+	def taronews_all_reader(self):		
+		n = 1
+		while n < 173:
+			try:
+				url = 'https://taronews.tw/category/politics/page/'+str(n)
+				resp = urllib2.urlopen(url).getcode() # check url exist
+			except:
+				print("Reach the end page.")
+				break
+		
+			print('================================ page: ' + str(n) + ' ================================')
+			
+			res = requests.get(url)
+			soup = BeautifulSoup(res.text, "lxml")
+			drinks = soup.select('.post-url')[:-5] if n==1 else soup.select('.listing-item-grid-1 .post-url')
+
+			all_news = []
+			for drink in drinks: # .class # #id
+				news_url = drink.get('href')
+				
+				if news_url == last_news_url: # reach has read news
+					self.append_2_json(all_news)
+					raise SyntaxError("Read all news news")
+				else:
+					news_dict = self.taronews_reader(news_url)
+					all_news.insert(0, news_dict)
+			n+=1
+			self.append_2_json(all_news) # save as json file
+			
+			
+
+	
+			
+			
+
+		
+			
+		
+
+
+	def taronews_reader(self, url):
+		text = self.get_url_text(url)
+		res = BeautifulSoup(text, features='lxml')	
+
+		title = res.find('meta', attrs={'property':'og:title'})['content'].split(u' | 芋傳媒 TaroNews')[0]
+		tag_list = [element.text for element in res.select('.post-tags a')]
+		author = res.select('.author-title')[0].text
+
+		# reported time: {time, time_year, time_month, time_day, time_hour_min}
+		time_str = res.find('meta', attrs={'property':'article:published_time'})['content']
+		date_obj = datetime.strptime(time_str, '%Y-%m-%dT%H:%M:%S+08:00')		# ex. 2019-09-04T17:28:53+08:00
+		time = date_obj.strftime("%Y/%m/%d %H:%M")
+		time_detail = [{'time':time, 'time_year':date_obj.strftime("%Y"), 'time_month':date_obj.strftime("%m"), 'time_day':date_obj.strftime("%d"), 'time_hour_min':date_obj.strftime("%H:%M")}]
+
+		# article content
+		context = ""		
+		for p in res.select('.single-post-content p'):
+			if len(p) !=0:
+				paragraph = p.text.strip('\n').strip()
+				context += paragraph 		 
+ 		
+		# related article: {related_title:related_url}
+		related_title = [element.find('a').text.strip('\t').strip() for element in res.select('.item-inner')]
+		related_url = [element.find('a').get('href') for element in res.select('.item-inner')]
+		related_news = [dict([element]) for element in zip(related_title, related_url)]
+
+		# recommend article: (recommend_title:recommend_url)
+		recommend_news = []
+
+		# video: {video_title:video_url}
+		if res.select('.single-post-content iframe') == []: video = []
+		else:
+			video_title = [element.get('alt') for element in res.select('.single-post-content iframe')]
+			video_url = [element.get('src') for element in res.select('.single-post-content iframe')]
+			video = [dict([element]) for element in zip(video_title, video_url)]	
+
+		# img: {img_title:img_url}
+		img_title = [res.select('.post-header')[0].get('alt')] # cover ing
+		img_url = [res.select('.post-header')[0].get('data-src')] # cover img
+		if res.select('figure') != []:  # img in article
+			img_title.extend([element.text for element in res.select('figcaption')])
+			img_url.extend([element.find('img').get('data-src') for element in res.select('figure')])
+		img = [dict([element]) for element in zip(img_title, img_url)]	
+
+		news_dict = {'title':title, 'author':author, 'context':context, 'url':url, 'tag':tag_list, 'time':time_detail, 'related_news':related_news,'recommend_news':recommend_news, 'source_video':video, 'source_img':img, 'media':'芋傳媒'}
+		print(title+' '+time)		
+		return news_dict
+		
+
+		
+
+
+	#########################################################################
+	############################# Yahoo!奇摩新聞 #############################
+	#########################################################################
+	def YAHOOnews_all_reader(self):
+		url = 'https://tw.news.yahoo.com/politics' if POLITICS else 'https://tw.news.yahoo.com/baseball'
+		browser.get(url) 	
+		jsCode = "var q=document.documentElement.scrollTop=100000" # control distance of scroller on the right
+		for x in range(0,10): 
+			browser.execute_script(jsCode) # keep scrolling to the bottom
+			sleep(1)
+		text = browser.page_source
+
+		all_news = []
+		res = BeautifulSoup(text, features='lxml')
+		drinks = res.select('#Col1-1-Hero-Proxy li, .tdv2-applet-stream h3')
+		
+		for drink in drinks: # .class # #id
+			if 'https://' in drink.find('a').get('href') or 'http://' in drink.find('a').get('href') : continue # skip Yahoo! customize ads
+			if '/video/' in drink.find('a').get('href'): continue # skip Yahoo! video (no article text)
+			news_url = 'https://tw.news.yahoo.com' + drink.find('a').get('href')			
+			
+			if news_url == last_news_url: # reach has read news
+				self.append_2_json(all_news)
+				raise SyntaxError("Read all news news")
+			else:
+				try: news_dict = self.YAHOOnews_reader(news_url)
+				except Exception as e: # prevent link to ETtoday's other platform
+					print(news_url); continue
+				all_news.insert(0, news_dict)
+		self.append_2_json(all_news) # save as json file
+		
+		
+			
+
+		
+			
+		
+
+
+	def YAHOOnews_reader(self, url):
+		browser.get(url)
+		text = browser.page_source
+		res = BeautifulSoup(text, features='lxml')
+		
+		title = res.title.text.split(u' - Yahoo奇摩新聞')[0]
+		#print(title)
+		if res.find('meta', attrs={'name':'news_keywords'})==None: tag_list = []
+		else: tag_list = res.find('meta', attrs={'name':'news_keywords'})['content'].split(u',')
+		if res.select('#mrt-node-Col1-5-Tags a')!=[]: 
+			for element in res.select('#mrt-node-Col1-5-Tags a'):
+				tag_list.extend([element.text.split(u'#')[1] if u'#' in element.text else element.text])
+			tag_list = list(set(tag_list)) # unique list
+		author = res.select('.provider-link')[0].text if res.select('.provider-link')!=[] else res.select('.author-link')[0].text
+
+		# reported time: {time, time_year, time_month, time_day, time_hour_min}
+		time_str = res.select('time')[0].get('datetime')
+		date_obj = datetime.strptime(time_str, '%Y-%m-%dT%H:%M:%S.000Z')	# ex. 2019-09-03T08:13:25.000Z
+		time = date_obj.strftime("%Y/%m/%d %H:%M")
+		time_detail = [{'time':time, 'time_year':date_obj.strftime("%Y"), 'time_month':date_obj.strftime("%m"), 'time_day':date_obj.strftime("%d"), 'time_hour_min':date_obj.strftime("%H:%M")}]
+
+		# article content
+		context = ""
+		source = res.select('.auth-logo')[0].get('title') if res.select('.auth-logo')[0].get('title')!=None else u'華視'
+		for p in res.select('article p'):
+			if u'更多'+source+u'報導' in p.text or u'更多政治相關新聞' in p.text or u'更多相關新聞' in p.text: break # end word in article
+			if len(p) !=0:
+				paragraph = p.text.strip('\n').strip()
+				context += paragraph			
+
+		# related article: {related_title:related_url}
+		related_title = [element.text for element in res.select('#mrt-node-Col1-7-RelatedContent ul a')]
+		related_url = ['https://tw.news.yahoo.com'+element.get('href') for element in res.select('#mrt-node-Col1-7-RelatedContent ul a')]
+		related_news = [dict([element]) for element in zip(related_title, related_url)]
+
+		# recommend article: (recommend_title:recommend_url)
+		recommend_news = []
+		if res.select('p a') == []: recommend_news = []
+		else:
+			recommend_title = [element.text for element in res.select('p a')]
+			recommend_url = [element.get('href') for element in res.select('p a')]
+			recommend_news = [dict([element]) for element in zip(recommend_title, recommend_url)]
+			if recommend_news[-1].keys()==[u'Yahoo論壇']: recommend_news = recommend_news[:-1] # remove Yahoo論壇 link
+
+		# video: {video_title:video_url}
+		if res.select('video') == []: video = []
+		else:
+			video_title = [element.text for element in res.select('.yvp-start-screen-bar-wrapper h3')] # turn dict in str to dict #.replace("\"","")
+			video_url = [element.get('src') for element in res.select('video')]
+			video = [dict([element]) for element in zip(video_title, video_url)]	
+
+		# img: {img_title:img_url}
+		if res.select('figure') == []:  img = [] # no img
+		else:
+			img_title = [element.text for element in res.select('figure figcaption')]
+			img_url = [element.get('src') for element in res.select('figure img')[1::2]] # select odd elements to avoid repeat imgs
+			img = [dict([element]) for element in zip(img_title, img_url)]	
+		
+		news_dict = {'title':title, 'author':author, 'context':context, 'url':url, 'tag':tag_list, 'time':time_detail, 'related_news':related_news,'recommend_news':recommend_news, 'source_video':video, 'source_img':img, 'media':'Yahoo!奇摩新聞'}
+		print(title+' '+time)
+		return news_dict
 	
 		
+
+
+	#########################################################################
+	############################## Pchome新聞 ################################
+	#########################################################################
+	def Pchomenews_all_reader(self):
+		n = 1
+		while n < 20:
+			try:
+				url = 'http://news.pchome.com.tw/cat/politics/'+str(n)
+				resp = urllib2.urlopen(url).getcode() # check url exist
+			except:
+				print("Reach the end page.")
+				break
+		
+			print('================================ page: ' + str(n) + ' ================================')
+			
+			text = self.get_url_text(url)
+			soup = BeautifulSoup(text, features='lxml')	
+			drinks = soup.select('#catalbk a, a+ p a') if n==1 else soup.select('a+ p a')
+			
+			all_news = []
+			for drink in drinks: # .class # #id
+				news_url = 'http://news.pchome.com.tw'+drink.get('href')
+				
+				if news_url == last_news_url: # reach has read news
+					self.append_2_json(all_news)
+					raise SyntaxError("Read all news news")
+				else:
+					news_dict = self.Pchomenews_reader(news_url)
+					all_news.insert(0, news_dict)
+			n+=1
+			self.append_2_json(all_news) # save as json file
+			
+
+
 	
+			
+			
+
+		
+			
+		
+
+
+	def Pchomenews_reader(self, url):
+		text = self.get_url_text(url)
+		res = BeautifulSoup(text, features='lxml')	
+
+		title = res.find('p', attrs={'class':'article_title'})['title']
+		tag_list = [element.text for element in res.select('.ent_kw li a')]
+		author = res.time.text.split(u'　')[1]
+
+		# reported time: {time, time_year, time_month, time_day, time_hour_min}
+		time_str = res.time.get('datetime')
+		date_obj = datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S')		# ex. 2019-09-04 17:28:53
+		time = date_obj.strftime("%Y/%m/%d %H:%M")
+		time_detail = [{'time':time, 'time_year':date_obj.strftime("%Y"), 'time_month':date_obj.strftime("%m"), 'time_day':date_obj.strftime("%d"), 'time_hour_min':date_obj.strftime("%H:%M")}]
+
+		# article content
+		context = ""		
+		for p in res.select('#newsContent div'):
+			if len(p) !=0:
+				paragraph = p.text.strip('\n').strip()
+				context += paragraph 		 
+
+		# related article: {related_title:related_url}
+		related_title = [element.get('title') for element in res.select('.newlist2 li a')]
+		related_url = ['http://news.pchome.com.tw'+element.get('href') for element in res.select('.newlist2 li a')]
+		related_news = [dict([element]) for element in zip(related_title, related_url)]
+
+		# recommend article: (recommend_title:recommend_url)
+		recommend_news = []
+		
+		# video: {video_title:video_url}
+		if res.select('.ytplayer') == []: video = []
+		else:
+			video_title = [element.get('alt') for element in res.select('.ytplayer')]
+			video_url = ['https://www.youtube.com/watch?time_continue=2&v='+element.get('data-value') for element in res.select('.ytplayer')]
+			video = [dict([element]) for element in zip(video_title, video_url)]	
+
+		# img: {img_title:img_url}
+		if res.select('#newsContent img') == []:  img = [] # no img
+		else:
+			img_title = [element.get('alt') for element in res.select('#newsContent img')]
+			img_url = [element.get('src') for element in res.select('#newsContent img')]
+			img = [dict([element]) for element in zip(img_title, img_url)]	
+
+		news_dict = {'title':title, 'author':author, 'context':context, 'url':url, 'tag':tag_list, 'time':time_detail, 'related_news':related_news,'recommend_news':recommend_news, 'source_video':video, 'source_img':img, 'media':'Pchome新聞'}
+		print(title+' '+time)	
+		return news_dict
+		
 
 
 
@@ -1703,7 +2927,7 @@ class my_news_crawler():
 	#########################################################################
 	def read_news(self, media_input):
 		# crawler media list by user input
-		if media_input=="42": media_crawler_id_list = range(0,len(media_list)) # crawler all media
+		if media_input=="36": media_crawler_id_list = range(0,len(media_list)) # crawler all media
 		elif " " not in media_input or "," not in media_input:  media_crawler_id_list = [int(media_input)] # crawler one media # ex. input = 2
 		elif ' ' in media_input: media_crawler_id_list = map(int, media_input.split(" ")) # ex. input = 2 3
 		elif ',' in media_input: media_crawler_id_list = map(int, media_input.split(",")) # ex. input= 2,3
@@ -1741,10 +2965,9 @@ class my_news_crawler():
 					elif media == "台視(TTV)": self.ttv_all_reader()
 					elif media == "中視(CTV)": self.ctv_all_reader()
 					elif media == "華視(CTS)": self.cts_all_reader()
-					#elif media == "民視": 
+					elif media == "民視(FTV News)": self.ftvnews_all_reader()
 					elif media == "公視(PTS)": self.pts_all_reader()
 					elif media == "三立新聞(SETN)": self.sten_all_reader()
-					#elif media == "壹電視": self.nexttv_all_reader()
 					elif media == "中天新聞(CTITV)": self.ctitv_all_reader() # before this, unrenewed columns:{time, author}
 					elif media == "年代新聞(ERA News)": self.era_all_reader()
 					elif media == "非凡新聞(USTV)": self.ustv_all_reader()
@@ -1756,6 +2979,18 @@ class my_news_crawler():
 					elif media == "信傳媒(CM Media)": self.cmmedia_all_reader()
 					elif media == "匯流新聞網(CNEWS)": self.cnews_all_reader()					
 					elif media == "新頭殼(Newtalk)": self.newtalk_all_reader()
+					elif media == "風傳媒(Storm Media)": self.stormmedia_all_reader()
+					elif media == "今日新聞(NOW News)": self.nownews_all_reader()
+					elif media == "鏡週刊(Mirror Media)": self.mirrormedia_all_reader()
+					elif media == "新新聞(New7)": self.new7_all_reader()
+					elif media == "台灣好新聞(Taiwan Hot)": self.taiwanhot_all_reader()
+					elif media == "中央廣播電台(RTI News)": self.RTInews_all_reader()
+					elif media == "世界日報(World Journal)": self.worldjournal_all_reader()
+					elif media == "風向新聞(Kairos News)": self.kairosNews_all_reader()
+					elif media == "民眾日報(Mypeople News)": self.mypeople_all_reader()
+					elif media == "芋傳媒(Taro News)": self.taronews_all_reader()
+					elif media == "Yahoo!奇摩新聞(YAHOO News)": self.YAHOOnews_all_reader()
+					elif media == "Pchome新聞(Pchome News)": self.Pchomenews_all_reader()
 					else: raise SyntaxError('Crawler '+media+' Fail.')
 				except Exception as except_error:
 					print(except_error)
@@ -1764,18 +2999,6 @@ class my_news_crawler():
 
 
 if __name__ == '__main__':
-	# avoid error: Max retries exceeded with url (retry 3 times if connect to url fail)
-	#session = requests.Session()
-	#retry = Retry(connect=3, backoff_factor=0.5)
-	#adapter = HTTPAdapter(max_retries=retry)
-	#session.mount('https://', adapter)
-
-	# avoid error: Max retries exceeded with url (connect too much https and don't close)
-	#requests.adapters.DEFAULT_RETRIES = 5 # reconnect time to url
-	#session = requests.session()
-	#session.keep_alive = False # close non-used url
-	
-	
 	"""
 	# execute by machine shedule
 	start_time = datetime.now()
@@ -1790,21 +3013,50 @@ if __name__ == '__main__':
 		while datetime.now() < next_time:
 			sleep(20*60) # sleep for 20*60 secs (20 mins)
 	"""
-
-	media_list = ["自由時報(Liberty News)","蘋果日報(Apple Daily)","聯合報(UDN News)","中國時報(China Times)", "TVBS", "ETtoday", 
-	"台視(TTV)", "中視(CTV)", "華視(CTS)", "公視(PTS)", "三立新聞(SETN)", "中天新聞(CTITV)", "年代新聞(ERA News)", "非凡新聞(USTV)", "中央通訊社(CNA)"
-	,"關鍵評論網(The News Lens)", "民報(People News)","上報(Up Media)-調查", "上報(Up Media)-焦點", "大紀元(Epoch Times)", "信傳媒(CM Media)", "匯流新聞網(CNEWS)", "新頭殼(Newtalk)"] 
+	
+	media_list = ["自由時報(Liberty News)","蘋果日報(Apple Daily)","聯合報(UDN News)","中國時報(China Times)", # paper media
+	"TVBS", "ETtoday", "台視(TTV)", "中視(CTV)", "華視(CTS)", "民視(FTV News)", # tv media
+	"公視(PTS)", "三立新聞(SETN)", "中天新聞(CTITV)", "年代新聞(ERA News)", "非凡新聞(USTV)", "中央通訊社(CNA)" # tv media
+	,"關鍵評論網(The News Lens)", "民報(People News)","上報(Up Media)-調查", "上報(Up Media)-焦點", "大紀元(Epoch Times)", "信傳媒(CM Media)", # online media
+	"匯流新聞網(CNEWS)", "新頭殼(Newtalk)", "風傳媒(Storm Media)", "今日新聞(NOW News)", "鏡週刊(Mirror Media)",  # online media
+	"新新聞(New7)", "台灣好新聞(Taiwan Hot)", "中央廣播電台(RTI News)", "世界日報(World Journal)", "風向新聞(Kairos News)", # online media
+	"民眾日報(Mypeople News)", "芋傳媒(Taro News)", # online media
+	"Pchome新聞(Pchome News)", "Yahoo!奇摩新聞(YAHOO News)"] # search web media
 	# execute by users
 	for media_id,media in zip(xrange(0,len(media_list)),media_list): print(str(media_id) + ': ' + media)
 	print("42: 全部媒體(ALL)")
 
 	crawler = my_news_crawler()
+	crawler.read_news(raw_input())
 
-	global TEST
-	TEST = False
+	"""
+	global TEST; TEST = False
 	if TEST: crawler.read_news(str(len(media_list)-1))
 	else: crawler.read_news(raw_input())
+	"""
 
+	# avoid error: Max retries exceeded with url (retry 3 times if connect to url fail)
+	#session = requests.Session()
+	#retry = Retry(connect=3, backoff_factor=0.5)
+	#adapter = HTTPAdapter(max_retries=retry)
+	#session.mount('https://', adapter)
+
+	# avoid error: Max retries exceeded with url (connect too much https and don't close)
+	#requests.adapters.DEFAULT_RETRIES = 5 # reconnect time to url
+	#session = requests.session()
+	#session.keep_alive = False # close non-used url
+	
+	
+
+
+	
+
+
+	#httplib2.Http().request(url, 'HEAD')
+
+	#print(requests.head('https://tw.news.appledaily.com/politics/realtime/1').status_code)
+	#print(requests.head('https://tw.news.appledaily.com/politics/realtime/20').status_code)
+	
 
 	"""
 	with open(PATH+'自由時報'+'/'+DATE+'.json') as data_file:
