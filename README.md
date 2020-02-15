@@ -1,12 +1,12 @@
-# TaiwanNewsCrawler
+# Taiwan_News_Crawler
 
 **GitHub**
-https://github.com/milkpool/TaiwanNewsCrawler
+https://github.com/milkpool/Taiwan_News_Crawler
 
 ![info](https://img.shields.io/badge/release%20date-Feb.%202020-green) ![python](https://img.shields.io/badge/python-2-blue) ![python](https://img.shields.io/badge/python-3-blue)
 
 **pypl**
-https://pypi.org/project/TaiwanNewsCrawler/
+https://pypi.org/project/Taiwan_News_Crawler/
 
 ![info](https://img.shields.io/badge/license-MIT-orange)
 
@@ -54,7 +54,7 @@ Print Media|自由時報|Liberty News|0|ltn
 ## Installation
 #### 1. Install the library package with pip.
 ```
-pip install TaiwanNewsCrawler
+pip install Taiwan_News_Crawler
 ```
 #### 2. Download the webdriver for Chrome on the [official website](https://chromedriver.chromium.org/downloads).
 
@@ -62,11 +62,11 @@ pip install TaiwanNewsCrawler
 ## Usage
 #### 1. Build a crawler with the webdriver path inputted.
 ```python
-import TaiwanNewsCrawler
+import Taiwan_News_Crawler
 
 ## Build news crawler
 webdriver_path = 'WEBDRIVER_PATH'
-mycrawler = Taiwan_News_Crawler.crawler(webdriver_path)
+mycrawler = NewsCrawler.crawler(webdriver_path)
 ```
 
 #### 2. Crawl political news of certain media.
