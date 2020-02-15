@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name='TaiwanNewsCrawler',
+    name='Taiwan_News_Crawler',
     version='2020.02.15',
     keywords='news crawler Taiwan politics',
     description='A political news crawler for 34 Taiwanese stream media.',
@@ -14,7 +14,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     author='RitaLiou',
     author_email='imritaliou@gmail.com',    
-    url='https://github.com/milkpool/TaiwanNewsCrawler',
+    url='https://github.com/milkpool/Taiwan_News_Crawler',
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 2",
