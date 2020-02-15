@@ -1,4 +1,4 @@
-# Taiwan_News_Crawler
+# TaiwanNewsCrawler
 
 **GitHub**
 https://github.com/milkpool/TaiwanNewsCrawler
@@ -62,7 +62,7 @@ pip install TaiwanNewsCrawler
 ## Usage
 #### 1. Build a crawler with the webdriver path inputted.
 ```python
-import Taiwan_News_Crawler
+import TaiwanNewsCrawler
 
 ## Build news crawler
 webdriver_path = 'WEBDRIVER_PATH'
